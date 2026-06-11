@@ -7,7 +7,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { GEMS } from './gems.js';
+import { GEMS, CATEGORIES } from './gems.js';
 import { createGemRefractionMaterial, setRefractionResolution, overrideRefractionResolution } from './refraction.js';
 
 // ---------------------------------------------------------------- renderer
@@ -354,6 +354,25 @@ const CUTS = {
     geo.scale(1.35, 0.42, 0.95);
     return geo;
   },
+  // fulgurite: thin lightning-made tube
+  tube() {
+    const geo = CUTS.hexColumn();
+    geo.scale(0.42, 1.3, 0.42);
+    return geo;
+  },
+  // optical calcite: slanted rhombohedron (a sheared cube)
+  rhomb() {
+    const geo = new THREE.BoxGeometry(1.3, 1.3, 1.3);
+    geo.clearGroups();
+    const shear = new THREE.Matrix4().set(
+      1, 0.42, 0, 0,
+      0, 1, 0, 0,
+      0, 0.22, 1, 0,
+      0, 0, 0, 1,
+    );
+    geo.applyMatrix4(shear);
+    return geo;
+  },
 };
 
 function chunkLike(seed, count, base, vary) {
@@ -506,6 +525,19 @@ function buildBubbles(material) {
   return group;
 }
 
+// staurolite: two crystals grown straight through each other in an X
+function buildCross(material) {
+  const group = new THREE.Group();
+  const bar = new THREE.BoxGeometry(0.55, 2.5, 0.45);
+  bar.clearGroups();
+  const a = new THREE.Mesh(bar, material);
+  const b = new THREE.Mesh(bar, material);
+  a.rotation.z = 0.52;
+  b.rotation.z = -0.52;
+  group.add(a, b);
+  return group;
+}
+
 function buildGem(gem, cam = camera) {
   let obj;
   if (gem.refract && hdrEquirect) {
@@ -521,6 +553,8 @@ function buildGem(gem, cam = camera) {
       obj = buildCluster(material);
     } else if (gem.cut === 'bubbles') {
       obj = buildBubbles(material);
+    } else if (gem.cut === 'cross') {
+      obj = buildCross(material);
     } else {
       const geo = CUTS[gem.cut]();
       if (gem.fx && !geo.attributes.uv) addBoxUVs(geo); // textured fx needs UVs on convex hulls
@@ -695,7 +729,8 @@ function toggleReading() {
 
 // ---------------------------------------------------------------- gem shelf UI
 const shelf = document.getElementById('shelf');
-GEMS.forEach((gem) => {
+
+function makeGemButton(gem) {
   const btn = document.createElement('button');
   btn.className = 'gem-btn';
   btn.dataset.id = gem.id;
@@ -704,11 +739,67 @@ GEMS.forEach((gem) => {
   btn.style.setProperty('--c3', gem.swatch[2]);
   btn.innerHTML = `<span class="gem-icon"></span><span class="gem-name">${gem.name}</span>`;
   btn.addEventListener('click', () => showGem(gem));
-  shelf.appendChild(btn);
+  return btn;
+}
+
+CATEGORIES.forEach((cat) => {
+  const gems = GEMS.filter(g => g.cat === cat.id);
+  if (!gems.length) return;
+  const header = document.createElement('button');
+  header.className = 'cat-header';
+  header.dataset.cat = cat.id;
+  header.innerHTML = `<span class="cat-emoji">${cat.emoji}</span><span class="cat-title">${cat.name}</span><span class="cat-count">${gems.length}</span><span class="cat-arrow">▸</span>`;
+  const section = document.createElement('div');
+  section.className = 'cat-section';
+  section.dataset.cat = cat.id;
+  gems.forEach(g => section.appendChild(makeGemButton(g)));
+  header.addEventListener('click', () => {
+    setCatOpen(cat.id, !section.classList.contains('open'));
+    header.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+  shelf.appendChild(header);
+  shelf.appendChild(section);
 });
 
-// render each gem once off-screen and use the result as its shelf icon
-function makeThumbnails() {
+function setCatOpen(catId, open) {
+  shelf.querySelector(`.cat-section[data-cat="${catId}"]`)?.classList.toggle('open', open);
+  shelf.querySelector(`.cat-header[data-cat="${catId}"]`)?.classList.toggle('open', open);
+  if (open) queueCatThumbs(catId);
+}
+
+// thumbnails render lazily, per opened category, a few per tick
+const thumbDone = new Set();
+const thumbQueue = [];
+let renderThumbFn = null;
+let thumbPumping = false;
+
+function queueCatThumbs(catId) {
+  GEMS.forEach((g) => {
+    if (g.cat === catId && !thumbDone.has(g.id)) {
+      thumbDone.add(g.id);
+      thumbQueue.push(g);
+    }
+  });
+  pumpThumbs();
+}
+
+function pumpThumbs() {
+  if (!renderThumbFn || thumbPumping) return;
+  thumbPumping = true;
+  (function step() {
+    let n = 0;
+    while (thumbQueue.length && n < 3) {
+      const g = thumbQueue.shift();
+      try { renderThumbFn(g); } catch (e) { console.warn('thumb failed:', g.id, e); }
+      n++;
+    }
+    if (thumbQueue.length) setTimeout(step, 0);
+    else thumbPumping = false;
+  })();
+}
+
+// build the off-screen thumbnail rig (kept alive — categories open over time)
+function initThumbnails() {
   const SIZE = 256;
   const rt = new THREE.WebGLRenderTarget(SIZE, SIZE);
   const thumbScene = new THREE.Scene();
@@ -767,21 +858,15 @@ function makeThumbnails() {
     icon.innerHTML = `<img src="${cnv.toDataURL()}" alt="">`;
   }
 
-  // a few per tick keeps startup snappy with 61 gems
-  let i = 0;
-  (function step() {
-    const end = Math.min(i + 3, GEMS.length);
-    for (; i < end; i++) {
-      try { renderThumb(GEMS[i]); } catch (e) { console.warn('thumb failed:', GEMS[i].id, e); }
-    }
-    if (i < GEMS.length) setTimeout(step, 0);
-    else rt.dispose();
-  })();
+  renderThumbFn = renderThumb;
+  pumpThumbs();
 }
 
 function renderShelfActive(id) {
+  const gem = GEMS.find(g => g.id === id);
+  if (gem) setCatOpen(gem.cat, true);
   shelf.querySelectorAll('.gem-btn').forEach(b => b.classList.toggle('active', b.dataset.id === id));
-  shelf.querySelector(`[data-id="${id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  shelf.querySelector(`[data-id="${id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 // ---------------------------------------------------------------- loop
@@ -818,6 +903,6 @@ speechSynthesis.getVoices();
 // go! (wait for the HDRI so refraction gems get the real studio light)
 setRefractionResolution(renderer);
 hdrReady.then(() => {
+  initThumbnails();
   showGem(GEMS[0]);
-  makeThumbnails();
 });

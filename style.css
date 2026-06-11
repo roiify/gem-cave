@@ -226,12 +226,11 @@ h1 .spark { color: var(--gem); transition: color 0.5s; }
   top: clamp(112px, 19vh, 160px);
   bottom: 14px;
   z-index: 10;
-  display: grid;
-  grid-auto-flow: row;
-  grid-template-columns: repeat(2, auto);
-  justify-content: start;
-  align-content: start;
-  gap: 2px 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  width: 206px;
   padding: 12px 10px;
   overflow-y: auto;
   overflow-x: hidden;
@@ -243,6 +242,57 @@ h1 .spark { color: var(--gem); transition: color 0.5s; }
   scrollbar-width: none;
 }
 #shelf::-webkit-scrollbar { display: none; }
+
+.cat-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 10px 10px;
+  border: 1.5px solid rgba(255, 209, 102, 0.18);
+  border-radius: 16px;
+  background: rgba(255, 209, 102, 0.07);
+  cursor: pointer;
+  font-family: 'Baloo 2', sans-serif;
+  transition: background 0.2s, border-color 0.2s;
+}
+.cat-header:hover { background: rgba(255, 209, 102, 0.14); }
+.cat-header.open {
+  background: rgba(255, 209, 102, 0.16);
+  border-color: rgba(255, 209, 102, 0.45);
+}
+
+.cat-emoji { font-size: 1.15rem; }
+.cat-title {
+  flex: 1;
+  text-align: left;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--gold);
+  line-height: 1.1;
+}
+.cat-count {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: rgba(253, 246, 227, 0.55);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 2px 7px;
+}
+.cat-arrow {
+  font-size: 0.8rem;
+  color: rgba(253, 246, 227, 0.5);
+  transition: transform 0.25s;
+}
+.cat-header.open .cat-arrow { transform: rotate(90deg); }
+
+.cat-section {
+  display: none;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0;
+  justify-items: center;
+}
+.cat-section.open { display: grid; }
 
 .gem-btn {
   flex: 0 0 auto;
@@ -319,15 +369,19 @@ h1 .spark { color: var(--gem); transition: color 0.5s; }
     top: 104px;
     bottom: 8px;
     left: 6px;
-    grid-template-columns: repeat(1, auto);
-    padding: 8px 4px;
+    width: 124px;
+    padding: 8px 5px;
     border-radius: 20px;
   }
-  #shelf .gem-btn { width: 74px; padding: 8px 2px; }
+  .cat-header { padding: 8px 6px; gap: 4px; }
+  .cat-title { font-size: 0.68rem; }
+  .cat-count { display: none; }
+  .cat-section { grid-template-columns: 1fr; }
+  #shelf .gem-btn { width: 86px; padding: 8px 2px; }
   #shelf .gem-icon.thumb { width: 50px; height: 50px; }
   #shelf .gem-name { font-size: 0.66rem; }
   #card {
-    left: 94px;
+    left: 140px;
     right: 8px;
     width: auto;
     transform: none;
