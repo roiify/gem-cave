@@ -222,19 +222,25 @@ h1 .spark { color: var(--gem); transition: color 0.5s; }
 /* ---------------- gem shelf ---------------- */
 #shelf {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  left: clamp(8px, 1.5vw, 22px);
+  top: clamp(112px, 19vh, 160px);
+  bottom: 14px;
   z-index: 10;
   display: grid;
-  grid-auto-flow: column;
-  grid-template-rows: repeat(2, auto);
+  grid-auto-flow: row;
+  grid-template-columns: repeat(2, auto);
   justify-content: start;
-  gap: 0 4px;
-  padding: 12px clamp(14px, 4vw, 40px) 14px;
-  overflow-x: auto;
+  align-content: start;
+  gap: 2px 2px;
+  padding: 12px 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: rgba(10, 8, 22, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 26px;
   scrollbar-width: none;
-  background: linear-gradient(180deg, transparent, rgba(5, 4, 12, 0.92) 35%);
 }
 #shelf::-webkit-scrollbar { display: none; }
 
@@ -253,8 +259,8 @@ h1 .spark { color: var(--gem); transition: color 0.5s; }
   transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.gem-btn:hover { transform: translateY(-6px); }
-.gem-btn.active { transform: translateY(-10px) scale(1.08); }
+.gem-btn:hover { transform: translateX(5px); }
+.gem-btn.active { transform: translateX(7px) scale(1.08); }
 
 .gem-icon {
   width: 52px;
@@ -309,12 +315,25 @@ h1 .spark { color: var(--gem); transition: color 0.5s; }
 /* ---------------- small screens: card docks above shelf ---------------- */
 @media (max-width: 760px) {
   #hint { display: none; }
+  #shelf {
+    top: 104px;
+    bottom: 8px;
+    left: 6px;
+    grid-template-columns: repeat(1, auto);
+    padding: 8px 4px;
+    border-radius: 20px;
+  }
+  #shelf .gem-btn { width: 74px; padding: 8px 2px; }
+  #shelf .gem-icon.thumb { width: 50px; height: 50px; }
+  #shelf .gem-name { font-size: 0.66rem; }
   #card {
-    right: 50%;
-    transform: translateX(50%);
+    left: 94px;
+    right: 8px;
+    width: auto;
+    transform: none;
     top: auto;
-    bottom: 232px;
-    max-height: 38vh;
+    bottom: 10px;
+    max-height: 44vh;
   }
   #card.pop .card-inner { animation-name: cardPopMobile; }
   @keyframes cardPopMobile {
