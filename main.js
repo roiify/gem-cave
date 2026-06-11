@@ -666,6 +666,7 @@ function renderCard(gem) {
       <button id="readBtn" class="read-btn">🔊 Read it to me!</button>
     </div>`;
   document.getElementById('readBtn').addEventListener('click', toggleReading);
+  card.scrollTop = 0; // a previous scroll could leave the title hidden
   card.classList.remove('pop');
   void card.offsetWidth; // restart animation
   card.classList.add('pop');
