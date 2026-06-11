@@ -2,6 +2,11 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GEMS } from './gems.js';
 
 // ---------------------------------------------------------------- renderer
@@ -10,7 +15,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
+renderer.toneMappingExposure = 1.1;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#0b0916');
@@ -18,8 +23,26 @@ scene.background = new THREE.Color('#0b0916');
 const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
 camera.position.set(0, 0.7, 5.4);
 
+// environment: real studio HDRI (Poly Haven, CC0) — falls back to a synthetic room
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+new RGBELoader().load(
+  'assets/studio.hdr',
+  (tex) => {
+    scene.environment = pmrem.fromEquirectangular(tex).texture;
+    tex.dispose();
+  },
+  undefined,
+  () => {} // keep RoomEnvironment fallback
+);
+
+// bloom makes bright facets genuinely sparkle
+const composer = new EffectComposer(renderer);
+composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.4, 0.5, 0.87);
+composer.addPass(bloomPass);
+composer.addPass(new OutputPass());
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
@@ -44,7 +67,25 @@ const rimLight = new THREE.PointLight(0xffffff, 30, 30);
 rimLight.position.set(-3, 2, -4);
 scene.add(rimLight);
 
-// ---------------------------------------------------------------- cave atmosphere
+// ---------------------------------------------------------------- procedural textures
+function mulberry32(seed) {
+  return () => {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function makeCanvasTexture(size, draw) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  draw(c.getContext('2d'), size);
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
 function makeGlowTexture() {
   const c = document.createElement('canvas');
   c.width = c.height = 256;
@@ -59,7 +100,67 @@ function makeGlowTexture() {
 }
 const glowTex = makeGlowTexture();
 
-// big soft color blobs deep in the cave (gives transmission something to bend)
+// conchoidal ripple marks for obsidian (curved fracture rings, like real volcanic glass)
+const rippleTex = makeCanvasTexture(512, (ctx, S) => {
+  const rand = mulberry32(7);
+  ctx.fillStyle = '#808080';
+  ctx.fillRect(0, 0, S, S);
+  ctx.filter = 'blur(2px)';
+  for (let i = 0; i < 14; i++) {
+    const x = rand() * S, y = rand() * S;
+    const rings = 6 + Math.floor(rand() * 9);
+    for (let j = 0; j < rings; j++) {
+      const r = 8 + j * (10 + rand() * 9);
+      const amp = 30 * (1 - j / rings);
+      const shade = Math.round(128 + (j % 2 ? amp : -amp));
+      ctx.strokeStyle = `rgb(${shade},${shade},${shade})`;
+      ctx.lineWidth = 4 + rand() * 3;
+      ctx.beginPath();
+      ctx.arc(x, y, r, rand() * Math.PI * 2, rand() * Math.PI * 1.5 + Math.PI * 0.5);
+      ctx.stroke();
+    }
+  }
+});
+
+// milky cloud patches for rose quartz
+const cloudTex = makeCanvasTexture(512, (ctx, S) => {
+  const rand = mulberry32(99);
+  ctx.fillStyle = '#9a9a9a';
+  ctx.fillRect(0, 0, S, S);
+  ctx.filter = 'blur(22px)';
+  for (let i = 0; i < 60; i++) {
+    const shade = Math.round(70 + rand() * 170);
+    ctx.fillStyle = `rgba(${shade},${shade},${shade},0.4)`;
+    ctx.beginPath();
+    ctx.arc(rand() * S, rand() * S, 18 + rand() * 60, 0, Math.PI * 2);
+    ctx.fill();
+  }
+});
+
+// play-of-color flakes for opal
+const opalTex = makeCanvasTexture(512, (ctx, S) => {
+  const rand = mulberry32(2026);
+  ctx.fillStyle = '#101010';
+  ctx.fillRect(0, 0, S, S);
+  const colors = ['#ff3aa7', '#27e0c8', '#ffb521', '#7a5cff', '#37d24a', '#ff5722', '#19a7ff', '#f5f02a'];
+  ctx.filter = 'blur(3px)';
+  for (let i = 0; i < 240; i++) {
+    ctx.fillStyle = colors[Math.floor(rand() * colors.length)];
+    ctx.globalAlpha = 0.4 + rand() * 0.6;
+    const x = rand() * S, y = rand() * S, r = 5 + rand() * 18;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    for (let k = 1; k < 6; k++) {
+      const a = (k / 6) * Math.PI * 2;
+      const rr = r * (0.6 + rand() * 0.6);
+      ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+});
+
+// ---------------------------------------------------------------- cave atmosphere
 const blobs = [];
 [[-7, 3, -10, '#3d2a7a', 14], [8, -2, -12, '#143a5c', 16], [0, -6, -9, '#28104a', 12]].forEach(([x, y, z, col, s]) => {
   const m = new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(col), transparent: true, opacity: 0.55, depthWrite: false });
@@ -102,7 +203,7 @@ const dust = (() => {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   const mat = new THREE.PointsMaterial({
-    map: glowTex, color: 0xfff2c9, size: 0.16, transparent: true, opacity: 0.7,
+    map: glowTex, color: 0xfff2c9, size: 0.13, transparent: true, opacity: 0.6,
     blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true,
   });
   const pts = new THREE.Points(geo, mat);
@@ -111,15 +212,6 @@ const dust = (() => {
 })();
 
 // ---------------------------------------------------------------- gem geometry builders
-function mulberry32(seed) {
-  return () => {
-    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 function ring(radius, y, count, offset = 0) {
   const pts = [];
   for (let i = 0; i < count; i++) {
@@ -130,19 +222,27 @@ function ring(radius, y, count, offset = 0) {
 }
 
 const CUTS = {
+  // round brilliant: table, star facets, bezel, real girdle band, lower-girdle bulge, culet
   brilliant() {
     const pts = [
-      ...ring(0.55, 0.52, 8, Math.PI / 8), // table edge
-      ...ring(0.92, 0.3, 16),              // crown
-      ...ring(1.0, 0.0, 16, Math.PI / 16), // girdle
-      new THREE.Vector3(0, 0.52, 0),       // table center
-      new THREE.Vector3(0, -1.25, 0),      // culet
+      new THREE.Vector3(0, 0.5, 0),
+      ...ring(0.53, 0.5, 8, Math.PI / 8),     // table edge
+      ...ring(0.74, 0.41, 16),                // star facets
+      ...ring(0.94, 0.2, 16, Math.PI / 16),   // bezel / upper girdle
+      ...ring(1.0, 0.06, 32),                 // girdle top
+      ...ring(1.0, -0.02, 32, Math.PI / 32),  // girdle bottom
+      ...ring(0.62, -0.6, 16),                // lower-girdle facets
+      new THREE.Vector3(0, -1.08, 0),         // culet
     ];
     return new ConvexGeometry(pts);
   },
+  // step cut: three tiers above and below the girdle, stretched octagon
   emerald() {
-    const oct = (r, y) => ring(r, y, 8, Math.PI / 8).map(p => { p.x *= 1.35; return p; });
-    const pts = [...oct(0.62, 0.5), ...oct(0.95, 0.22), ...oct(0.95, -0.22), ...oct(0.55, -0.5)];
+    const oct = (r, y) => ring(r, y, 8, Math.PI / 8).map(p => { p.x *= 1.25; return p; });
+    const pts = [
+      ...oct(0.60, 0.75), ...oct(0.80, 0.57), ...oct(0.95, 0.30), ...oct(1.0, 0.0),
+      ...oct(0.95, -0.27), ...oct(0.75, -0.57), ...oct(0.50, -0.78),
+    ];
     return new ConvexGeometry(pts);
   },
   point() {
@@ -173,15 +273,85 @@ const CUTS = {
   },
 };
 
-function buildGemMesh(gem) {
-  const geometry = CUTS[gem.cut]();
-  geometry.computeBoundingSphere();
-  const s = 1.45 / geometry.boundingSphere.radius;
-  geometry.scale(s, s, s);
-  geometry.center();
-  const material = new THREE.MeshPhysicalMaterial({ side: THREE.FrontSide, ...gem.material });
+// ConvexGeometry has no UVs — project them per-face so bump maps work
+function addBoxUVs(geometry) {
+  const pos = geometry.attributes.position;
+  const norm = geometry.attributes.normal;
+  const uv = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i++) {
+    const nx = Math.abs(norm.getX(i)), ny = Math.abs(norm.getY(i)), nz = Math.abs(norm.getZ(i));
+    let u, v;
+    if (nx >= ny && nx >= nz) { u = pos.getZ(i); v = pos.getY(i); }
+    else if (ny >= nz) { u = pos.getX(i); v = pos.getZ(i); }
+    else { u = pos.getX(i); v = pos.getY(i); }
+    uv[i * 2] = u * 0.4 + 0.5;
+    uv[i * 2 + 1] = v * 0.4 + 0.5;
+  }
+  geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+}
+
+function applyFx(material, fx) {
+  if (fx === 'ripple') {
+    material.bumpMap = rippleTex;
+    material.bumpScale = 0.6;
+  } else if (fx === 'cloudy') {
+    material.roughnessMap = cloudTex;
+    material.roughness = 0.85;
+  } else if (fx === 'opal') {
+    material.emissiveMap = opalTex;
+    material.emissive = new THREE.Color(0xffffff);
+    material.emissiveIntensity = 0.45;
+  }
+}
+
+// amethyst-style druse: crystal points growing out of a rock base
+function buildCluster(gemMaterial) {
+  const group = new THREE.Group();
+  const rand = mulberry32(424242);
+  const rockGeo = CUTS.chunk();
+  rockGeo.scale(1.5, 0.55, 1.3);
+  const rockMat = new THREE.MeshStandardMaterial({ color: 0x4a4150, roughness: 0.92, metalness: 0.05 });
+  const rock = new THREE.Mesh(rockGeo, rockMat);
+  rock.position.y = -0.95;
+  group.add(rock);
+  const pointGeo = CUTS.point();
+  for (let i = 0; i < 9; i++) {
+    const m = new THREE.Mesh(pointGeo, gemMaterial);
+    const s = 0.42 + rand() * 0.55;
+    m.scale.setScalar(s);
+    const a = rand() * Math.PI * 2;
+    const r = rand() * 0.85;
+    m.position.set(Math.cos(a) * r, -0.8 + s * 0.7, Math.sin(a) * r);
+    m.rotation.set((rand() - 0.5) * 0.85, rand() * Math.PI * 2, (rand() - 0.5) * 0.85);
+    group.add(m);
+  }
+  return group;
+}
+
+function buildGem(gem) {
+  const material = new THREE.MeshPhysicalMaterial({ ...gem.material });
   if (gem.material.attenuationColor) material.attenuationColor = new THREE.Color(gem.material.attenuationColor);
-  return new THREE.Mesh(geometry, material);
+  applyFx(material, gem.fx);
+
+  let obj;
+  if (gem.cut === 'cluster') {
+    obj = buildCluster(material);
+  } else {
+    const geo = CUTS[gem.cut]();
+    if (gem.fx === 'ripple') addBoxUVs(geo);
+    obj = new THREE.Mesh(geo, material);
+  }
+
+  // normalize size + center inside a wrapper (the wrapper carries the pop animation)
+  const wrapper = new THREE.Group();
+  wrapper.add(obj);
+  const box = new THREE.Box3().setFromObject(obj);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  const s = 2.9 / Math.max(size.x, size.y, size.z);
+  obj.scale.setScalar(s);
+  obj.position.copy(center).multiplyScalar(-s);
+  return wrapper;
 }
 
 // ---------------------------------------------------------------- sparkle burst
@@ -238,15 +408,23 @@ let popT = 1; // 0..1 pop-in animation progress
 
 const easeOutBack = (t) => { const c = 1.70158; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
 
+function disposeGem(obj) {
+  obj.traverse((n) => {
+    if (n.isMesh) {
+      n.geometry.dispose();
+      n.material.dispose();
+    }
+  });
+}
+
 function showGem(gem) {
   if (currentGem?.id === gem.id) { burst.fire(gem.accent); return; }
   currentGem = gem;
   if (currentMesh) {
     gemGroup.remove(currentMesh);
-    currentMesh.geometry.dispose();
-    currentMesh.material.dispose();
+    disposeGem(currentMesh);
   }
-  currentMesh = buildGemMesh(gem);
+  currentMesh = buildGem(gem);
   gemGroup.add(currentMesh);
   popT = 0;
   burst.fire(gem.accent);
@@ -271,7 +449,7 @@ canvas.addEventListener('pointerup', (e) => {
   if (moved > 8 || !quick || !currentMesh) return;
   const ndc = new THREE.Vector2((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
-  if (raycaster.intersectObject(currentMesh).length) {
+  if (raycaster.intersectObject(currentMesh, true).length) {
     burst.fire(currentGem.accent);
     popT = 0.55; // little bounce
   }
@@ -365,13 +543,14 @@ renderer.setAnimationLoop(() => {
   pedestalGlow.material.opacity = 0.42 + Math.sin(t * 2) * 0.08;
   burst.tick(dt);
   controls.update();
-  renderer.render(scene, camera);
+  composer.render();
 });
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
 });
 
 // warm up speech voices (some browsers load them async)

@@ -8,6 +8,7 @@ export const GEMS = [
     accent: '#3dd68c',
     swatch: ['#3b3f46', '#101216', '#000000'],
     cut: 'chunk',
+    fx: 'ripple',
     material: {
       color: 0x050507, roughness: 0.08, metalness: 0.0,
       transmission: 0.12, ior: 1.5, thickness: 2.2,
@@ -106,12 +107,12 @@ export const GEMS = [
     swatch: ['#4fe3a4', '#0ca860', '#03522d'],
     cut: 'emerald',
     material: {
-      emissive: 0x089653, emissiveIntensity: 0.28,
-      color: 0x22c97e, roughness: 0.03, metalness: 0.0,
+      emissive: 0x078a4c, emissiveIntensity: 0.3,
+      color: 0x17b06b, roughness: 0.03, metalness: 0.0,
       transmission: 0.92, ior: 1.57, thickness: 2.0, dispersion: 0.08,
-      attenuationColor: 0x0ca860, attenuationDistance: 2.2,
+      attenuationColor: 0x0a9a57, attenuationDistance: 1.9,
       clearcoat: 0.5, clearcoatRoughness: 0.08,
-      envMapIntensity: 1.4,
+      envMapIntensity: 0.9,
     },
     chips: [
       { icon: '💪', label: 'Toughness', value: '8 out of 10' },
@@ -129,12 +130,12 @@ export const GEMS = [
     pronounce: 'AM-uh-thist',
     accent: '#a06bff',
     swatch: ['#c79bff', '#8a4dff', '#3d1680'],
-    cut: 'point',
+    cut: 'cluster',
     material: {
-      emissive: 0x5a28b8, emissiveIntensity: 0.2,
-      color: 0x8a4dff, roughness: 0.05, metalness: 0.0,
+      emissive: 0x7a3df0, emissiveIntensity: 0.32,
+      color: 0xa570ff, roughness: 0.05, metalness: 0.0,
       transmission: 0.92, ior: 1.55, thickness: 1.8, dispersion: 0.06,
-      attenuationColor: 0x7a3df0, attenuationDistance: 1.8,
+      attenuationColor: 0x8a4dff, attenuationDistance: 2.6,
       clearcoat: 0.4, clearcoatRoughness: 0.1,
       envMapIntensity: 1.4,
     },
@@ -180,6 +181,7 @@ export const GEMS = [
     accent: '#ff9ec7',
     swatch: ['#ffd2e4', '#ff9ec7', '#c75e8e'],
     cut: 'cabochon',
+    fx: 'cloudy',
     material: {
       emissive: 0xc4647e, emissiveIntensity: 0.12,
       color: 0xffb3cf, roughness: 0.35, metalness: 0.0,
@@ -205,6 +207,7 @@ export const GEMS = [
     accent: '#7fe8e0',
     swatch: ['#ffffff', '#bdf3ec', '#caa6ff'],
     cut: 'cabochon',
+    fx: 'opal',
     material: {
       emissive: 0x8fd8cc, emissiveIntensity: 0.08,
       color: 0xf2f6f5, roughness: 0.25, metalness: 0.0,
