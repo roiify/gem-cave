@@ -226,18 +226,21 @@ h1 .spark { color: var(--gem); transition: color 0.5s; }
   left: 0;
   right: 0;
   z-index: 10;
-  display: flex;
-  gap: 6px;
-  padding: 14px clamp(14px, 4vw, 40px) 16px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(2, auto);
+  justify-content: start;
+  gap: 0 4px;
+  padding: 12px clamp(14px, 4vw, 40px) 14px;
   overflow-x: auto;
   scrollbar-width: none;
-  background: linear-gradient(180deg, transparent, rgba(5, 4, 12, 0.92) 45%);
+  background: linear-gradient(180deg, transparent, rgba(5, 4, 12, 0.92) 35%);
 }
 #shelf::-webkit-scrollbar { display: none; }
 
 .gem-btn {
   flex: 0 0 auto;
-  width: 92px;
+  width: 88px;
   background: none;
   border: none;
   cursor: pointer;
@@ -310,8 +313,8 @@ h1 .spark { color: var(--gem); transition: color 0.5s; }
     right: 50%;
     transform: translateX(50%);
     top: auto;
-    bottom: 138px;
-    max-height: 46vh;
+    bottom: 232px;
+    max-height: 38vh;
   }
   #card.pop .card-inner { animation-name: cardPopMobile; }
   @keyframes cardPopMobile {

@@ -300,6 +300,60 @@ const CUTS = {
     geo.scale(1.15, 0.75, 1.05);
     return geo;
   },
+  // pyrite / fluorite: nature grows perfect cubes
+  cube() {
+    const geo = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+    geo.clearGroups(); // material groups would split the BVH into multiple roots
+    return geo;
+  },
+  // garnet: rhombic dodecahedron (hull of cube + octahedron points)
+  dodeca() {
+    const pts = [];
+    for (const x of [-0.7, 0.7]) for (const y of [-0.7, 0.7]) for (const z of [-0.7, 0.7]) pts.push(new THREE.Vector3(x, y, z));
+    pts.push(
+      new THREE.Vector3(1.4, 0, 0), new THREE.Vector3(-1.4, 0, 0),
+      new THREE.Vector3(0, 1.4, 0), new THREE.Vector3(0, -1.4, 0),
+      new THREE.Vector3(0, 0, 1.4), new THREE.Vector3(0, 0, -1.4),
+    );
+    return new ConvexGeometry(pts);
+  },
+  // tourmaline: rounded-triangle column with a beveled top
+  trigonal() {
+    const tri = (r, y) => {
+      const pts = [];
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        const rr = i % 2 === 0 ? r : r * 0.72;
+        pts.push(new THREE.Vector3(Math.cos(a) * rr, y, Math.sin(a) * rr));
+      }
+      return pts;
+    };
+    return new ConvexGeometry([...tri(0.62, -1.05), ...tri(0.62, 0.85), ...tri(0.45, 1.1)]);
+  },
+  // topaz / tanzanite / kunzite: squarish prism with a chisel-wedge tip
+  orthoPrism() {
+    const rect = (y) => [
+      new THREE.Vector3(0.55, y, 0.85), new THREE.Vector3(-0.55, y, 0.85),
+      new THREE.Vector3(0.55, y, -0.85), new THREE.Vector3(-0.55, y, -0.85),
+      new THREE.Vector3(0.78, y, 0.45), new THREE.Vector3(-0.78, y, 0.45),
+      new THREE.Vector3(0.78, y, -0.45), new THREE.Vector3(-0.78, y, -0.45),
+    ];
+    return new ConvexGeometry([
+      ...rect(-1.0), ...rect(0.7),
+      new THREE.Vector3(0.4, 1.2, 0.25), new THREE.Vector3(-0.4, 1.2, 0.25),
+      new THREE.Vector3(0.4, 1.2, -0.25), new THREE.Vector3(-0.4, 1.2, -0.25),
+    ]);
+  },
+  // pearl
+  sphere() {
+    return new THREE.SphereGeometry(1, 48, 32);
+  },
+  // labradorite / kyanite / ammolite: flat rough slab
+  slab() {
+    const geo = chunkLike(414, 40, 0.85, 0.2);
+    geo.scale(1.35, 0.42, 0.95);
+    return geo;
+  },
 };
 
 function chunkLike(seed, count, base, vary) {
@@ -332,17 +386,81 @@ function addBoxUVs(geometry) {
   geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
 }
 
+// pattern textures (rings, stripes, spots) — generated once, cached by fx config
+const fxTexCache = new Map();
+function getFxTexture(fx, maker) {
+  const key = JSON.stringify(fx);
+  if (!fxTexCache.has(key)) fxTexCache.set(key, maker());
+  return fxTexCache.get(key);
+}
+
+function makeRings(colors, seed = 5) {
+  return makeCanvasTexture(512, (ctx, S) => {
+    const rand = mulberry32(seed);
+    ctx.fillStyle = colors[0];
+    ctx.fillRect(0, 0, S, S);
+    const cx = S * (0.35 + rand() * 0.3), cy = S * (0.35 + rand() * 0.3);
+    let r = 14 + rand() * 18;
+    for (let i = 1; r < S * 1.2; i++) {
+      ctx.strokeStyle = colors[i % colors.length];
+      const w = 7 + rand() * 24;
+      ctx.lineWidth = w;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+      r += w * 0.9;
+    }
+  });
+}
+
+function makeStripes(colors, seed = 11) {
+  return makeCanvasTexture(512, (ctx, S) => {
+    const rand = mulberry32(seed);
+    for (let y = 0, i = 0; y < S; i++) {
+      const h = 10 + rand() * 32;
+      ctx.fillStyle = colors[i % colors.length];
+      ctx.fillRect(0, y, S, h + 1);
+      y += h;
+    }
+  });
+}
+
+function makeSpotsTexture(bg, colors, count, rMin, rMax, seed = 21, blur = 3) {
+  return makeCanvasTexture(512, (ctx, S) => {
+    const rand = mulberry32(seed);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, S, S);
+    ctx.filter = `blur(${blur}px)`;
+    for (let i = 0; i < count; i++) {
+      ctx.fillStyle = colors[Math.floor(rand() * colors.length)];
+      ctx.globalAlpha = 0.5 + rand() * 0.5;
+      ctx.beginPath();
+      ctx.arc(rand() * S, rand() * S, rMin + rand() * (rMax - rMin), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+}
+
 function applyFx(material, fx) {
-  if (fx === 'ripple') {
+  if (!fx) return;
+  if (fx.type === 'ripple') {
     material.bumpMap = rippleTex;
     material.bumpScale = 0.6;
-  } else if (fx === 'cloudy') {
+  } else if (fx.type === 'cloudy') {
     material.roughnessMap = cloudTex;
     material.roughness = 0.85;
-  } else if (fx === 'opal') {
-    material.emissiveMap = opalTex;
+  } else if (fx.type === 'flecks') {
+    material.emissiveMap = fx.colors
+      ? getFxTexture(fx, () => makeSpotsTexture('#0c0c0c', fx.colors, fx.count ?? 120, 2, 9, 33, 1))
+      : opalTex;
     material.emissive = new THREE.Color(0xffffff);
-    material.emissiveIntensity = 0.45;
+    material.emissiveIntensity = fx.intensity ?? 0.45;
+  } else if (fx.type === 'rings') {
+    material.map = getFxTexture(fx, () => makeRings(fx.colors, fx.seed ?? 5));
+  } else if (fx.type === 'stripes') {
+    material.map = getFxTexture(fx, () => makeStripes(fx.colors, fx.seed ?? 11));
+  } else if (fx.type === 'spots') {
+    material.map = getFxTexture(fx, () => makeSpotsTexture(fx.bg, fx.colors, fx.count ?? 50, fx.rMin ?? 6, fx.rMax ?? 26, fx.seed ?? 21));
   }
 }
 
@@ -370,6 +488,24 @@ function buildCluster(gemMaterial) {
   return group;
 }
 
+// malachite / hematite: botryoidal "bubble" growth
+function buildBubbles(material) {
+  const group = new THREE.Group();
+  const rand = mulberry32(888);
+  const sphereGeo = new THREE.SphereGeometry(1, 32, 24);
+  for (let i = 0; i < 14; i++) {
+    const m = new THREE.Mesh(sphereGeo, material);
+    const s = 0.35 + rand() * 0.45;
+    const a = rand() * Math.PI * 2;
+    const r = rand() * 0.9;
+    m.scale.setScalar(s);
+    m.position.set(Math.cos(a) * r, -0.45 + s * 0.3, Math.sin(a) * r);
+    m.rotation.y = rand() * Math.PI * 2;
+    group.add(m);
+  }
+  return group;
+}
+
 function buildGem(gem, cam = camera) {
   let obj;
   if (gem.refract && hdrEquirect) {
@@ -383,6 +519,8 @@ function buildGem(gem, cam = camera) {
     applyFx(material, gem.fx);
     if (gem.cut === 'cluster') {
       obj = buildCluster(material);
+    } else if (gem.cut === 'bubbles') {
+      obj = buildBubbles(material);
     } else {
       const geo = CUTS[gem.cut]();
       if (gem.fx && !geo.attributes.uv) addBoxUVs(geo); // textured fx needs UVs on convex hulls
@@ -587,21 +725,23 @@ function makeThumbnails() {
   const prevClearColor = new THREE.Color();
   renderer.getClearColor(prevClearColor);
   const prevClearAlpha = renderer.getClearAlpha();
-  renderer.setClearColor(0x000000, 0);
-  overrideRefractionResolution(SIZE, SIZE);
 
   const pixels = new Uint8Array(SIZE * SIZE * 4);
   const gamma = new Uint8Array(256);
   for (let i = 0; i < 256; i++) gamma[i] = Math.round(255 * Math.pow(i / 255, 1 / 2.2));
 
-  GEMS.forEach((gem) => {
+  function renderThumb(gem) {
     const obj = buildGem(gem, thumbCam);
     obj.rotation.y = 0.5;
     thumbScene.add(obj);
+    renderer.setClearColor(0x000000, 0);
+    overrideRefractionResolution(SIZE, SIZE);
     renderer.setRenderTarget(rt);
     renderer.render(thumbScene, thumbCam);
     renderer.readRenderTargetPixels(rt, 0, 0, SIZE, SIZE, pixels);
     renderer.setRenderTarget(null);
+    setRefractionResolution(renderer);
+    renderer.setClearColor(prevClearColor, prevClearAlpha);
     thumbScene.remove(obj);
     disposeGem(obj);
 
@@ -624,11 +764,18 @@ function makeThumbnails() {
     const icon = shelf.querySelector(`[data-id="${gem.id}"] .gem-icon`);
     icon.classList.add('thumb');
     icon.innerHTML = `<img src="${cnv.toDataURL()}" alt="">`;
-  });
+  }
 
-  rt.dispose();
-  renderer.setClearColor(prevClearColor, prevClearAlpha);
-  setRefractionResolution(renderer);
+  // a few per tick keeps startup snappy with 61 gems
+  let i = 0;
+  (function step() {
+    const end = Math.min(i + 3, GEMS.length);
+    for (; i < end; i++) {
+      try { renderThumb(GEMS[i]); } catch (e) { console.warn('thumb failed:', GEMS[i].id, e); }
+    }
+    if (i < GEMS.length) setTimeout(step, 0);
+    else rt.dispose();
+  })();
 }
 
 function renderShelfActive(id) {
