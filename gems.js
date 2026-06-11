@@ -27,6 +27,7 @@ export const GEMS = [
   },
   {
     id: 'diamond',
+    refract: { color: '#ffffff', ior: 2.42, aberration: 0.035, fresnel: 0.25, bounces: 3 },
     name: 'Diamond',
     emoji: '💎',
     pronounce: 'DY-mund',
@@ -50,6 +51,7 @@ export const GEMS = [
   },
   {
     id: 'ruby',
+    refract: { color: '#ff3852', ior: 1.77, aberration: 0.012, fresnel: 0.15, bounces: 3 },
     name: 'Ruby',
     emoji: '❤️',
     pronounce: 'ROO-bee',
@@ -75,6 +77,7 @@ export const GEMS = [
   },
   {
     id: 'sapphire',
+    refract: { color: '#3c66ff', ior: 1.77, aberration: 0.012, fresnel: 0.15, bounces: 3 },
     name: 'Sapphire',
     emoji: '💙',
     pronounce: 'SAF-ire',
@@ -100,6 +103,7 @@ export const GEMS = [
   },
   {
     id: 'emerald',
+    refract: { color: '#18c578', ior: 1.57, aberration: 0.008, fresnel: 0.12, bounces: 3 },
     name: 'Emerald',
     emoji: '💚',
     pronounce: 'EM-er-uld',
@@ -150,6 +154,7 @@ export const GEMS = [
   },
   {
     id: 'citrine',
+    refract: { color: '#ffa226', ior: 1.55, aberration: 0.008, fresnel: 0.12, bounces: 3 },
     name: 'Citrine',
     emoji: '🍋',
     pronounce: 'SIH-treen',

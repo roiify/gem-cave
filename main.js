@@ -8,6 +8,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GEMS } from './gems.js';
+import { createGemRefractionMaterial, setRefractionResolution } from './refraction.js';
 
 // ---------------------------------------------------------------- renderer
 const canvas = document.getElementById('scene');
@@ -23,18 +24,24 @@ scene.background = new THREE.Color('#0b0916');
 const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
 camera.position.set(0, 0.7, 5.4);
 
-// environment: real studio HDRI (Poly Haven, CC0) — falls back to a synthetic room
+// environment: real studio HDRI (Poly Haven, CC0) — falls back to a synthetic room.
+// The equirect texture is kept alive: the refraction shader samples it directly.
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-new RGBELoader().load(
-  'assets/studio.hdr',
-  (tex) => {
-    scene.environment = pmrem.fromEquirectangular(tex).texture;
-    tex.dispose();
-  },
-  undefined,
-  () => {} // keep RoomEnvironment fallback
-);
+let hdrEquirect = null;
+const hdrReady = new Promise((resolve) => {
+  new RGBELoader().load(
+    'assets/studio.hdr',
+    (tex) => {
+      tex.mapping = THREE.EquirectangularReflectionMapping;
+      hdrEquirect = tex;
+      scene.environment = pmrem.fromEquirectangular(tex).texture;
+      resolve();
+    },
+    undefined,
+    () => resolve() // keep RoomEnvironment fallback; refract gems fall back to physical
+  );
+});
 
 // bloom makes bright facets genuinely sparkle
 const composer = new EffectComposer(renderer);
@@ -170,14 +177,6 @@ const blobs = [];
   scene.add(sp);
   blobs.push(sp);
 });
-
-// soft accent glow directly behind the gem — gives transmissive gems bright light to refract
-const backGlow = new THREE.Sprite(new THREE.SpriteMaterial({
-  map: glowTex, color: 0xffffff, transparent: true, opacity: 0.5, depthWrite: false,
-}));
-backGlow.position.set(0, 0.4, -5.5);
-backGlow.scale.setScalar(10);
-scene.add(backGlow);
 
 // glow disc under the gem, tinted per gem
 const pedestalGlow = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -329,17 +328,23 @@ function buildCluster(gemMaterial) {
 }
 
 function buildGem(gem) {
-  const material = new THREE.MeshPhysicalMaterial({ ...gem.material });
-  if (gem.material.attenuationColor) material.attenuationColor = new THREE.Color(gem.material.attenuationColor);
-  applyFx(material, gem.fx);
-
   let obj;
-  if (gem.cut === 'cluster') {
-    obj = buildCluster(material);
-  } else {
+  if (gem.refract && hdrEquirect) {
+    // faceted transparent gems: true multi-bounce internal refraction
     const geo = CUTS[gem.cut]();
-    if (gem.fx === 'ripple') addBoxUVs(geo);
+    const material = createGemRefractionMaterial(geo, hdrEquirect, camera, gem.refract);
     obj = new THREE.Mesh(geo, material);
+  } else {
+    const material = new THREE.MeshPhysicalMaterial({ ...gem.material });
+    if (gem.material.attenuationColor) material.attenuationColor = new THREE.Color(gem.material.attenuationColor);
+    applyFx(material, gem.fx);
+    if (gem.cut === 'cluster') {
+      obj = buildCluster(material);
+    } else {
+      const geo = CUTS[gem.cut]();
+      if (gem.fx === 'ripple') addBoxUVs(geo);
+      obj = new THREE.Mesh(geo, material);
+    }
   }
 
   // normalize size + center inside a wrapper (the wrapper carries the pop animation)
@@ -412,6 +417,7 @@ function disposeGem(obj) {
   obj.traverse((n) => {
     if (n.isMesh) {
       n.geometry.dispose();
+      n.material.userData.bvhStruct?.dispose();
       n.material.dispose();
     }
   });
@@ -429,8 +435,6 @@ function showGem(gem) {
   popT = 0;
   burst.fire(gem.accent);
   pedestalGlow.material.color.set(gem.accent);
-  backGlow.material.color.set(gem.accent).lerp(new THREE.Color('#ffffff'), 0.35);
-  rimLight.color.set(gem.accent);
   document.documentElement.style.setProperty('--gem', gem.accent);
   renderCard(gem);
   renderShelfActive(gem.id);
@@ -551,10 +555,12 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
   composer.setSize(window.innerWidth, window.innerHeight);
+  setRefractionResolution(renderer);
 });
 
 // warm up speech voices (some browsers load them async)
 speechSynthesis.getVoices();
 
-// go!
-showGem(GEMS[0]);
+// go! (wait for the HDRI so refraction gems get the real studio light)
+setRefractionResolution(renderer);
+hdrReady.then(() => showGem(GEMS[0]));
