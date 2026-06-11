@@ -116,6 +116,11 @@ export function setRefractionResolution(renderer) {
   renderer.getDrawingBufferSize(RESOLUTION);
 }
 
+// temporarily point gl_FragCoord math at an offscreen target (e.g. thumbnail renders)
+export function overrideRefractionResolution(w, h) {
+  RESOLUTION.set(w, h);
+}
+
 export function createGemRefractionMaterial(geometry, envMap, camera, opts = {}) {
   const bvh = new MeshBVH(geometry, { strategy: SAH, maxLeafTris: 1 });
   const bvhStruct = new MeshBVHUniformStruct();

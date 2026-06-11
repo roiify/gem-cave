@@ -8,7 +8,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GEMS } from './gems.js';
-import { createGemRefractionMaterial, setRefractionResolution } from './refraction.js';
+import { createGemRefractionMaterial, setRefractionResolution, overrideRefractionResolution } from './refraction.js';
 
 // ---------------------------------------------------------------- renderer
 const canvas = document.getElementById('scene');
@@ -270,6 +270,12 @@ const CUTS = {
     geo.scale(1, 0.72, 1);
     return geo;
   },
+  // flattened faceted oval — freeform polished opal
+  oval() {
+    const geo = CUTS.brilliant();
+    geo.scale(1.15, 0.62, 1.15);
+    return geo;
+  },
 };
 
 // ConvexGeometry has no UVs — project them per-face so bump maps work
@@ -327,12 +333,12 @@ function buildCluster(gemMaterial) {
   return group;
 }
 
-function buildGem(gem) {
+function buildGem(gem, cam = camera) {
   let obj;
   if (gem.refract && hdrEquirect) {
     // faceted transparent gems: true multi-bounce internal refraction
     const geo = CUTS[gem.cut]();
-    const material = createGemRefractionMaterial(geo, hdrEquirect, camera, gem.refract);
+    const material = createGemRefractionMaterial(geo, hdrEquirect, cam, gem.refract);
     obj = new THREE.Mesh(geo, material);
   } else {
     const material = new THREE.MeshPhysicalMaterial({ ...gem.material });
@@ -342,7 +348,7 @@ function buildGem(gem) {
       obj = buildCluster(material);
     } else {
       const geo = CUTS[gem.cut]();
-      if (gem.fx === 'ripple') addBoxUVs(geo);
+      if (gem.fx && !geo.attributes.uv) addBoxUVs(geo); // textured fx needs UVs on convex hulls
       obj = new THREE.Mesh(geo, material);
     }
   }
@@ -525,6 +531,69 @@ GEMS.forEach((gem) => {
   shelf.appendChild(btn);
 });
 
+// render each gem once off-screen and use the result as its shelf icon
+function makeThumbnails() {
+  const SIZE = 256;
+  const rt = new THREE.WebGLRenderTarget(SIZE, SIZE);
+  const thumbScene = new THREE.Scene();
+  thumbScene.environment = scene.environment;
+  const tKey = new THREE.DirectionalLight(0xffffff, 2.2);
+  tKey.position.set(5, 8, 6);
+  const tFill = new THREE.DirectionalLight(0x8899ff, 0.5);
+  tFill.position.set(-6, -2, -4);
+  thumbScene.add(tKey, tFill);
+  const thumbCam = new THREE.PerspectiveCamera(40, 1, 0.1, 50);
+  thumbCam.position.set(0, 1.2, 4.6);
+  thumbCam.lookAt(0, 0, 0);
+  thumbCam.updateMatrixWorld(true);
+
+  const prevClearColor = new THREE.Color();
+  renderer.getClearColor(prevClearColor);
+  const prevClearAlpha = renderer.getClearAlpha();
+  renderer.setClearColor(0x000000, 0);
+  overrideRefractionResolution(SIZE, SIZE);
+
+  const pixels = new Uint8Array(SIZE * SIZE * 4);
+  const gamma = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) gamma[i] = Math.round(255 * Math.pow(i / 255, 1 / 2.2));
+
+  GEMS.forEach((gem) => {
+    const obj = buildGem(gem, thumbCam);
+    obj.rotation.y = 0.5;
+    thumbScene.add(obj);
+    renderer.setRenderTarget(rt);
+    renderer.render(thumbScene, thumbCam);
+    renderer.readRenderTargetPixels(rt, 0, 0, SIZE, SIZE, pixels);
+    renderer.setRenderTarget(null);
+    thumbScene.remove(obj);
+    disposeGem(obj);
+
+    // flip rows (GL reads bottom-up) and gamma-correct the linear render
+    const cnv = document.createElement('canvas');
+    cnv.width = cnv.height = SIZE;
+    const ctx = cnv.getContext('2d');
+    const img = ctx.createImageData(SIZE, SIZE);
+    for (let y = 0; y < SIZE; y++) {
+      const src = (SIZE - 1 - y) * SIZE * 4;
+      const dst = y * SIZE * 4;
+      for (let x = 0; x < SIZE * 4; x += 4) {
+        img.data[dst + x] = gamma[pixels[src + x]];
+        img.data[dst + x + 1] = gamma[pixels[src + x + 1]];
+        img.data[dst + x + 2] = gamma[pixels[src + x + 2]];
+        img.data[dst + x + 3] = pixels[src + x + 3];
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    const icon = shelf.querySelector(`[data-id="${gem.id}"] .gem-icon`);
+    icon.classList.add('thumb');
+    icon.innerHTML = `<img src="${cnv.toDataURL()}" alt="">`;
+  });
+
+  rt.dispose();
+  renderer.setClearColor(prevClearColor, prevClearAlpha);
+  setRefractionResolution(renderer);
+}
+
 function renderShelfActive(id) {
   shelf.querySelectorAll('.gem-btn').forEach(b => b.classList.toggle('active', b.dataset.id === id));
   shelf.querySelector(`[data-id="${id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
@@ -563,4 +632,7 @@ speechSynthesis.getVoices();
 
 // go! (wait for the HDRI so refraction gems get the real studio light)
 setRefractionResolution(renderer);
-hdrReady.then(() => showGem(GEMS[0]));
+hdrReady.then(() => {
+  showGem(GEMS[0]);
+  makeThumbnails();
+});
