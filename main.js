@@ -254,29 +254,66 @@ const CUTS = {
     return new ConvexGeometry(pts);
   },
   chunk() {
-    const rand = mulberry32(20260611);
-    const pts = [];
-    for (let i = 0; i < 46; i++) {
-      const v = new THREE.Vector3(rand() - 0.5, rand() - 0.5, rand() - 0.5)
-        .normalize()
-        .multiplyScalar(0.8 + rand() * 0.35);
-      v.y *= 1.15;
-      pts.push(v);
-    }
+    return chunkLike(20260611, 46, 0.8, 0.35);
+  },
+  // natural raw diamond crystal: octahedron
+  octa() {
+    const pts = [
+      new THREE.Vector3(1, 0, 0), new THREE.Vector3(-1, 0, 0),
+      new THREE.Vector3(0, 1.25, 0), new THREE.Vector3(0, -1.25, 0),
+      new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -1),
+    ];
     return new ConvexGeometry(pts);
   },
-  cabochon() {
-    const geo = new THREE.SphereGeometry(1, 48, 32);
-    geo.scale(1, 0.72, 1);
-    return geo;
+  // natural corundum (ruby): flat hexagonal tabular barrel
+  hexTab() {
+    const pts = [
+      ...ring(0.92, 0.42, 6), ...ring(0.92, -0.42, 6),
+      ...ring(0.68, 0.6, 6, Math.PI / 6), ...ring(0.68, -0.6, 6, Math.PI / 6),
+    ];
+    return new ConvexGeometry(pts);
   },
-  // flattened faceted oval — freeform polished opal
-  oval() {
-    const geo = CUTS.brilliant();
-    geo.scale(1.15, 0.62, 1.15);
+  // natural sapphire: hexagonal bipyramid spindle
+  bipyramid() {
+    const pts = [
+      ...ring(0.72, 0, 6),
+      ...ring(0.48, 0.58, 6, Math.PI / 6), ...ring(0.48, -0.58, 6, Math.PI / 6),
+      new THREE.Vector3(0, 1.2, 0), new THREE.Vector3(0, -1.2, 0),
+    ];
+    return new ConvexGeometry(pts);
+  },
+  // natural emerald: tall hexagonal column with a flat, slightly beveled top
+  hexColumn() {
+    const pts = [
+      ...ring(0.5, -1.05, 6), ...ring(0.5, 0.95, 6),
+      ...ring(0.38, 1.12, 6),
+    ];
+    return new ConvexGeometry(pts);
+  },
+  // massive rose quartz: rounded rough chunk, no crystal faces
+  rough() {
+    return chunkLike(777, 64, 0.88, 0.2);
+  },
+  // raw opal nodule straight out of the ground
+  nodule() {
+    const geo = chunkLike(313, 40, 0.82, 0.28);
+    geo.scale(1.15, 0.75, 1.05);
     return geo;
   },
 };
+
+function chunkLike(seed, count, base, vary) {
+  const rand = mulberry32(seed);
+  const pts = [];
+  for (let i = 0; i < count; i++) {
+    const v = new THREE.Vector3(rand() - 0.5, rand() - 0.5, rand() - 0.5)
+      .normalize()
+      .multiplyScalar(base + rand() * vary);
+    v.y *= 1.15;
+    pts.push(v);
+  }
+  return new ConvexGeometry(pts);
+}
 
 // ConvexGeometry has no UVs — project them per-face so bump maps work
 function addBoxUVs(geometry) {

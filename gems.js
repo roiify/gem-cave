@@ -33,7 +33,7 @@ export const GEMS = [
     pronounce: 'DY-mund',
     accent: '#bfe3ff',
     swatch: ['#ffffff', '#cfe8ff', '#8fb8e8'],
-    cut: 'brilliant',
+    cut: 'octa',
     material: {
       color: 0xffffff, roughness: 0.0, metalness: 0.0,
       transmission: 1.0, ior: 2.42, thickness: 1.6, dispersion: 0.35,
@@ -57,7 +57,7 @@ export const GEMS = [
     pronounce: 'ROO-bee',
     accent: '#ff4d6d',
     swatch: ['#ff7a93', '#e6173f', '#7c0220'],
-    cut: 'brilliant',
+    cut: 'hexTab',
     material: {
       emissive: 0xcc0a33, emissiveIntensity: 0.3,
       color: 0xff4060, roughness: 0.02, metalness: 0.0,
@@ -83,7 +83,7 @@ export const GEMS = [
     pronounce: 'SAF-ire',
     accent: '#4d7cff',
     swatch: ['#7da2ff', '#1f4fd8', '#0a1f6b'],
-    cut: 'brilliant',
+    cut: 'bipyramid',
     material: {
       emissive: 0x1335cc, emissiveIntensity: 0.3,
       color: 0x3f6fff, roughness: 0.02, metalness: 0.0,
@@ -109,7 +109,7 @@ export const GEMS = [
     pronounce: 'EM-er-uld',
     accent: '#19c37d',
     swatch: ['#4fe3a4', '#0ca860', '#03522d'],
-    cut: 'emerald',
+    cut: 'hexColumn',
     material: {
       emissive: 0x078a4c, emissiveIntensity: 0.3,
       color: 0x17b06b, roughness: 0.03, metalness: 0.0,
@@ -185,7 +185,7 @@ export const GEMS = [
     pronounce: 'rohz KWORTS',
     accent: '#ff9ec7',
     swatch: ['#ffd2e4', '#ff9ec7', '#c75e8e'],
-    cut: 'point',
+    cut: 'rough',
     fx: 'cloudy',
     material: {
       emissive: 0xc4647e, emissiveIntensity: 0.12,
@@ -211,7 +211,7 @@ export const GEMS = [
     pronounce: 'OH-pul',
     accent: '#7fe8e0',
     swatch: ['#ffffff', '#bdf3ec', '#caa6ff'],
-    cut: 'oval',
+    cut: 'nodule',
     fx: 'opal',
     material: {
       color: 0xf2f6f5, roughness: 0.18, metalness: 0.0,
