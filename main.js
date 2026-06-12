@@ -24,6 +24,29 @@ scene.background = new THREE.Color('#0b0916');
 const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
 camera.position.set(0, 0.7, 5.4);
 
+// portrait phones: the default camera is too close (gem overflows the narrow
+// view) and dead-center (hidden behind the sidebar + card). Pull back and
+// nudge the framing toward the free space in the upper right.
+function fitCameraToAspect() {
+  const W = window.innerWidth, H = window.innerHeight;
+  const aspect = W / H;
+  const s = aspect < 0.9 ? Math.min(0.95 / aspect, 2.3) : 1;
+  const target = new THREE.Vector3(0, 0.1, 0);
+  const dir = camera.position.clone().sub(target);
+  const dist = THREE.MathUtils.clamp(5.6 * s, 4, 14);
+  camera.position.copy(target).addScaledVector(dir.normalize(), dist);
+  if (typeof controls !== 'undefined') {
+    controls.minDistance = 3.2 * s;
+    controls.maxDistance = 8 * s;
+  }
+  if (aspect < 0.9) {
+    camera.setViewOffset(W, H, -W * 0.16, H * 0.17, W, H);
+  } else {
+    camera.clearViewOffset();
+  }
+  camera.updateProjectionMatrix();
+}
+
 // environment: real studio HDRI (Poly Haven, CC0) — falls back to a synthetic room.
 // The equirect texture is kept alive: the refraction shader samples it directly.
 const pmrem = new THREE.PMREMGenerator(renderer);
@@ -60,6 +83,7 @@ controls.maxDistance = 8;
 controls.autoRotate = true;
 controls.autoRotateSpeed = 2.2;
 controls.target.set(0, 0.1, 0);
+fitCameraToAspect();
 
 // ---------------------------------------------------------------- lights
 const keyLight = new THREE.DirectionalLight(0xffffff, 2.2);
@@ -891,7 +915,7 @@ renderer.setAnimationLoop(() => {
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
+  fitCameraToAspect();
   renderer.setSize(window.innerWidth, window.innerHeight);
   composer.setSize(window.innerWidth, window.innerHeight);
   setRefractionResolution(renderer);
