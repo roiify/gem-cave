@@ -904,5 +904,7 @@ speechSynthesis.getVoices();
 setRefractionResolution(renderer);
 hdrReady.then(() => {
   initThumbnails();
-  showGem(GEMS[0]);
+  // ?gem=id deep links (the mine's treasure box uses these)
+  const wanted = new URLSearchParams(location.search).get('gem');
+  showGem(GEMS.find(g => g.id === wanted) || GEMS[0]);
 });

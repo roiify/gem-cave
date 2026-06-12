@@ -1,0 +1,189 @@
+:root {
+  --gem: #3dd68c;
+  --ink: #fdf6e3;
+  --gold: #ffd166;
+  --card-bg: rgba(16, 13, 32, 0.85);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: #0b0916;
+  font-family: 'Baloo 2', sans-serif;
+  color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+#mine {
+  position: fixed;
+  inset: 0;
+  display: block;
+  touch-action: none;
+}
+
+.mine-top {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  pointer-events: none;
+}
+.mine-top > * { pointer-events: auto; }
+
+.mine-top h1 {
+  font-family: 'Lilita One', cursive;
+  font-size: clamp(1.2rem, 4vw, 1.9rem);
+  color: var(--gold);
+  text-shadow: 0 3px 0 #7a4f00, 0 8px 24px rgba(255, 209, 102, 0.35);
+  transform: rotate(-1.5deg);
+}
+
+.pill {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--ink);
+  background: rgba(16, 13, 32, 0.8);
+  border: 2px solid rgba(255, 209, 102, 0.35);
+  border-radius: 999px;
+  padding: 8px 14px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.pill:active { transform: scale(0.94); }
+
+.hud {
+  position: fixed;
+  bottom: 10px;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 10px;
+}
+
+.hud .pill { font-size: 1rem; padding: 10px 16px; }
+.hud .pill b { color: var(--gold); }
+#bagBtn { border-color: rgba(61, 214, 140, 0.5); }
+
+#toast {
+  position: fixed;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%) scale(0);
+  z-index: 20;
+  font-family: 'Lilita One', cursive;
+  font-size: clamp(1.2rem, 4.5vw, 2rem);
+  color: var(--ink);
+  background: var(--card-bg);
+  border: 3px solid var(--gem);
+  border-radius: 999px;
+  padding: 12px 26px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 0 40px color-mix(in srgb, var(--gem) 40%, transparent);
+}
+#toast.show { animation: toastPop 1.8s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+@keyframes toastPop {
+  0% { transform: translateX(-50%) scale(0); }
+  14% { transform: translateX(-50%) scale(1); }
+  82% { transform: translateX(-50%) scale(1); opacity: 1; }
+  100% { transform: translateX(-50%) scale(0.85); opacity: 0; }
+}
+
+/* ---------------- overlay (recap + treasure box) ---------------- */
+#overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 4, 12, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 16px;
+}
+#overlay.show { display: flex; }
+
+.panel {
+  background: var(--card-bg);
+  border: 3px solid var(--gold);
+  border-radius: 26px;
+  padding: 22px;
+  width: min(440px, 94vw);
+  max-height: 86vh;
+  overflow-y: auto;
+  text-align: center;
+  animation: toastPopIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes toastPopIn { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+.panel h2 {
+  font-family: 'Lilita One', cursive;
+  font-size: 1.6rem;
+  color: var(--gold);
+  margin-bottom: 6px;
+}
+.panel p { font-weight: 600; margin-bottom: 12px; color: rgba(253, 246, 227, 0.8); }
+
+.loot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+
+.loot-item {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 10px 6px;
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--ink);
+}
+.loot-item:active { transform: scale(0.95); }
+.loot-item .le { font-size: 1.6rem; display: block; }
+.loot-item .ln { font-size: 0.68rem; font-weight: 800; display: block; line-height: 1.15; margin-top: 3px; }
+.loot-item .lc { font-size: 0.66rem; font-weight: 700; color: var(--gold); }
+.loot-item.rare-find { border-color: var(--gold); box-shadow: 0 0 14px rgba(255, 209, 102, 0.35); }
+
+.big-btn {
+  font-family: 'Lilita One', cursive;
+  font-size: 1.15rem;
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #3b2400;
+  background: linear-gradient(180deg, #ffe29a, var(--gold) 55%, #e8a93d);
+  box-shadow: 0 5px 0 #9c6b12, 0 12px 24px rgba(255, 209, 102, 0.25);
+  margin-top: 4px;
+}
+.big-btn:active { transform: translateY(4px); box-shadow: 0 1px 0 #9c6b12; }
+
+.small-btn {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 800;
+  font-size: 0.85rem;
+  background: none;
+  border: none;
+  color: rgba(253, 246, 227, 0.6);
+  margin-top: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+}
