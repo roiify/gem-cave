@@ -44,7 +44,7 @@ header {
 
 h1 {
   font-family: 'Lilita One', cursive;
-  font-size: clamp(2rem, 6vw, 3.4rem);
+  font-size: clamp(1.7rem, 5vw, 2.6rem);
   letter-spacing: 0.02em;
   line-height: 0.95;
   color: var(--gold);
